@@ -2,37 +2,41 @@ package tech.sujitjayaraj.tacocloud.controller;
 
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.Errors;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 import tech.sujitjayaraj.tacocloud.domain.Ingredient;
 import tech.sujitjayaraj.tacocloud.domain.Ingredient.Type;
+import tech.sujitjayaraj.tacocloud.domain.Order;
 import tech.sujitjayaraj.tacocloud.domain.Taco;
+import tech.sujitjayaraj.tacocloud.repository.IngredientRepository;
+import tech.sujitjayaraj.tacocloud.repository.TacoRepository;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
 @Controller
 @RequestMapping("/design")
+@SessionAttributes("order")
 public class DesignTacoController {
+
+    private final IngredientRepository ingredientRepository;
+
+    private final TacoRepository designRepository;
+
+    @Autowired
+    public DesignTacoController(IngredientRepository ingredientRepository, TacoRepository designRepository) {
+        this.ingredientRepository = ingredientRepository;
+        this.designRepository = designRepository;
+    }
 
     @GetMapping
     public String showDesignForm(Model model) {
-        List<Ingredient> ingredients = List.of(
-                new Ingredient("FLTO", "Flour Tortilla", Ingredient.Type.WRAP),
-                new Ingredient("COTO", "Corn Tortilla", Ingredient.Type.WRAP),
-                new Ingredient("GRBF", "Ground Beef", Ingredient.Type.PROTEIN),
-                new Ingredient("CARN", "Carnitas", Ingredient.Type.PROTEIN),
-                new Ingredient("TMTO", "Diced Tomatoes", Ingredient.Type.VEGGIES),
-                new Ingredient("LETC", "Lettuce", Ingredient.Type.VEGGIES),
-                new Ingredient("CHED", "Cheddar", Ingredient.Type.CHEESE),
-                new Ingredient("JACK", "Monterrey Jack", Ingredient.Type.CHEESE),
-                new Ingredient("SLSA", "Salsa", Ingredient.Type.SAUCE),
-                new Ingredient("SRCR", "Sour Cream", Ingredient.Type.SAUCE)
-        );
+        List<Ingredient> ingredients = new ArrayList<>();
+        ingredientRepository.findAll().forEach(ingredients::add);
 
         Type[] types = Ingredient.Type.values();
 
@@ -42,18 +46,27 @@ public class DesignTacoController {
                     .toList());
         }
 
-        model.addAttribute("design", new Taco());
-
         return "design";
     }
 
+    @ModelAttribute(name = "order")
+    public Order order() {
+        return new Order();
+    }
+
+    @ModelAttribute(name = "design")
+    public Taco taco() {
+        return new Taco();
+    }
+
     @PostMapping
-    public String processDesign(@Valid Taco design, Errors errors) {
+    public String processDesign(@Valid @ModelAttribute Taco design, Errors errors, @ModelAttribute Order order) {
         if (errors.hasErrors()) {
             return "design";
         }
 
-        log.info("Processing design: " + design);
+        Taco saved = designRepository.save(design);
+        order.addDesign(saved);
 
         return "redirect:/orders/current";
     }
